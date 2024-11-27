@@ -57,13 +57,21 @@ class MilvusEmbeddingRetriever:
         return default_from_dict(cls, data)
 
     @component.output_types(documents=List[Document])
-    def run(self, query_embedding: List[float]) -> Dict[str, List[Document]]:
+    def run(self, query_embedding: List[float], 
+            filters: Optional[Dict[str, Any]] = None,
+            top_k: int = 10) -> Dict[str, List[Document]]:
         """
         Retrieve documents from the `MilvusDocumentStore`, based on their dense embeddings.
 
         :param query_embedding: Embedding of the query.
         :return: List of Document similar to `query_embedding`.
         """
+        
+        if isinstance(filters, dict):
+            self.filters = filters
+        if isinstance(top_k, int):
+            self.top_k = top_k
+
         docs = self.document_store._embedding_retrieval(
             query_embedding=query_embedding,
             filters=self.filters,
@@ -135,7 +143,7 @@ class MilvusSparseEmbeddingRetriever:
             self.filters = filters
         if isinstance(top_k, int):
             self.top_k = top_k
-            
+
         docs = self.document_store._sparse_embedding_retrieval(
             query_sparse_embedding=query_sparse_embedding,
             filters=self.filters,
