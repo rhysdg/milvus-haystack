@@ -1,3 +1,4 @@
+import asyncio
 import importlib
 import logging
 from copy import deepcopy
@@ -483,6 +484,18 @@ class MilvusDocumentStore:
                 logger.error("Failed to insert batch starting at entity: %s/%s", i, total_count)
                 raise err
         return len(wrote_ids)
+    
+    async def write_documents_async(
+        self, documents: list[Document], policy: DuplicatePolicy = DuplicatePolicy.NONE
+    ) -> int:
+        """
+        Refer to the DocumentStore.write_documents() protocol documentation.
+
+        If `policy` is set to `DuplicatePolicy.NONE` defaults to `DuplicatePolicy.FAIL`.
+        """
+        return await asyncio.get_event_loop().run_in_executor(
+            self.executor, lambda: self.write_documents(documents=documents, policy=policy)
+        )
 
     def delete_documents(self, document_ids: List[str]) -> None:
         """
