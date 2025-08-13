@@ -3,6 +3,7 @@ import importlib
 import logging
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
+from concurrent.futures import ThreadPoolExecutor
 
 from haystack import Document, default_from_dict, default_to_dict
 from haystack.dataclasses.sparse_embedding import SparseEmbedding
@@ -75,6 +76,7 @@ class MilvusDocumentStore:
         partition_names: Optional[list] = None,
         replica_number: int = 1,
         timeout: Optional[float] = None,
+        async_executor: Optional[ThreadPoolExecutor] = None,
     ):
         """
         Initialize the Milvus vector store.
@@ -223,6 +225,29 @@ class MilvusDocumentStore:
             timeout=timeout,
         )
         self._dummy_value = 999.0
+
+
+        # keep track of whether we own the executor if we created it we must also clean it up
+        self._owns_executor = async_executor is None
+        self.executor = (
+            ThreadPoolExecutor(thread_name_prefix=f"async-inmemory-docstore-executor-{id(self)}", max_workers=1)
+            if async_executor is None
+            else async_executor
+        )
+
+    def __del__(self):
+        """
+        Cleanup when the instance is being destroyed.
+        """
+        if hasattr(self, "_owns_executor") and self._owns_executor and hasattr(self, "executor"):
+            self.executor.shutdown(wait=True)
+
+    def shutdown(self):
+        """
+        Explicitly shutdown the executor if we own it.
+        """
+        if self._owns_executor:
+            self.executor.shutdown(wait=True)
 
     def _check_function(self):
         # In the future, we will support dense function after the Milvus's DIDO feature
